@@ -10,6 +10,7 @@ TODO: Add MLflow integration:
 - mlflow.log_text() / mlflow.log_dict() for artifacts
 """
 
+
 from __future__ import annotations
 
 import time
@@ -75,6 +76,11 @@ def run_few_shot(
     for n_shots in shot_counts:
         # TODO: Start an MLflow nested run with name f"few-shot-{n_shots}"
         # TODO: Log parameters: experiment_type="few_shot", n_shots, num_samples, vllm_model_path=model_name
+        with mlflow.start_run(run_name=f"few-shot-{n_shots}"):
+            mlflow.log_param("experiment_type", "few_shot")
+            mlflow.log_param("n_shots", n_shots)
+            mlflow.log_param("num_samples", len(dataset))
+            mlflow.log_param("vllm_model_path", model_name)
 
         y_pred = []
         start_time = time.time()
@@ -102,12 +108,22 @@ def run_few_shot(
         metrics["avg_latency_s"] = elapsed / len(dataset)
 
         # TODO: Log all metrics to MLflow using mlflow.log_metric()
+        for key, value in metrics.items():
+                mlflow.log_metric(key, value)
 
         report = get_classification_report(y_true, y_pred)
+
         # TODO: Log classification report as text artifact using mlflow.log_text()
+        mlflow.log_text(report, f"classification_report_{n_shots}shot.txt")
+
+
 
         cm = get_confusion_matrix(y_true, y_pred)
         # TODO: Log confusion matrix as JSON artifact using mlflow.log_dict()
+        mlflow.log_dict(
+                {"labels": ["positive", "negative", "neutral"], "matrix": cm},
+                f"confusion_matrix_{n_shots}shot.json",
+            )
 
         results[n_shots] = metrics
         print(
