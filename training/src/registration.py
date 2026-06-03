@@ -1,6 +1,7 @@
 """Register the best model of a given experiment type in the MLflow Model Registry."""
-from mlflow.tracking import MlflowClient
 from __future__ import annotations
+from mlflow.tracking import MlflowClient
+
 
 import argparse
 
