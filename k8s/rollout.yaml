@@ -1,0 +1,83 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
+metadata:
+  name: sentiment-model
+  labels:
+    app: sentiment-model
+spec:
+  replicas: 1
+  revisionHistoryLimit: 2
+  selector:
+    matchLabels:
+      app: sentiment-model
+  template:
+    metadata:
+      labels:
+        app: sentiment-model
+    spec:
+      containers:
+        - name: vllm-server
+          image: registry.local:5000/vllm-base:latest
+          imagePullPolicy: IfNotPresent
+          # TODO: Add args to configure vLLM. The server needs:
+          #   --model <path>             (initial model: Qwen/Qwen2.5-1.5B)
+          #   --port 8000
+          #   --max-model-len 512
+          #   --dtype float16
+          #   --gpu-memory-utilization 0.4  (leave room for the canary pod)
+          #   --enforce-eager            (skip torch.compile to save GPU memory)
+          args: []
+          ports:
+            - containerPort: 8000
+              name: http
+          resources:
+            requests:
+              cpu: 500m
+              memory: 2Gi
+            limits:
+              cpu: "2"
+              memory: 4Gi
+          # TODO: Add volumeMounts for the model weights.
+          # The HuggingFace cache should be mounted at /root/.cache/huggingface
+          # The quantized model should be mounted at /mnt/models/v2-quantized
+          volumeMounts: []
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 120
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 60
+            periodSeconds: 10
+          envFrom:
+            - configMapRef:
+                name: mlops-config
+          env:
+            - name: MODEL_VERSION
+              value: "v1-fp16"
+            - name: HF_HUB_OFFLINE
+              value: "1"
+      volumes:
+        - name: hf-cache
+          hostPath:
+            path: /mnt/hf-cache
+            type: Directory
+        - name: quantized-model
+          hostPath:
+            path: /mnt/models/v2-quantized
+            type: Directory
+  strategy:
+    canary:
+      stableService: sentiment-model-stable
+      canaryService: sentiment-model-canary
+      # TODO: Define canary steps.
+      # The rollout should:
+      #   1. Start by sending 20% of traffic to the canary
+      #   2. Run the drift-analysis AnalysisTemplate (pass baseline-host
+      #      and canary-host args matching the service names above)
+      #   3. Gradually increase to 50%, pause 30s, then 80%, pause 30s
+      steps: []

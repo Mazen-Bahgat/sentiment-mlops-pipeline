@@ -1,0 +1,45 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AnalysisTemplate
+metadata:
+  name: drift-analysis
+spec:
+  args:
+    - name: baseline-host
+    - name: canary-host
+  metrics:
+    - name: drift-detection-job
+      provider:
+        job:
+          spec:
+            backoffLimit: 1
+            template:
+              spec:
+                restartPolicy: Never
+                containers:
+                  - name: analysis
+                    image: registry.local:5000/sentiment-analysis-job:latest
+                    imagePullPolicy: IfNotPresent
+                    envFrom:
+                      - configMapRef:
+                          name: mlops-config
+                    # TODO: Add env vars to tell the analysis job where to send
+                    # predictions. It needs:
+                    #   BASELINE_URL — the vLLM completions endpoint on the stable service
+                    #                  (http://{{args.baseline-host}}:8000/v1/completions)
+                    #   CANARY_URL   — the vLLM completions endpoint on the canary service
+                    #                  (http://{{args.canary-host}}:8000/v1/completions)
+                    env: []
+                    resources:
+                      requests:
+                        cpu: 200m
+                        memory: 512Mi
+                      limits:
+                        cpu: "1"
+                        memory: 1Gi
+    # TODO: Add a Prometheus metric check that queries the drift score
+    # pushed by the analysis job. It should:
+    #   - Wait 60s before first check (initialDelay)
+    #   - Query: sentiment_drift_score{job="analysis-job"}
+    #   - Pass if result[0] < 0.5 (low drift = safe to promote)
+    #   - Check 3 times, fail if 2+ checks fail
+    #   - Prometheus address: http://kube-prometheus-stack-prometheus.monitoring:9090

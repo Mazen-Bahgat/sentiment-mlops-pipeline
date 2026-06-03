@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+
+# Data and models
+data/*.csv
+*.pt
+*.bin
+*.safetensors
+lora_output/
+
+# MLflow
+mlruns/
+
+# Logs
+logs/
+*.jsonl
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+*~
+
+qwen2.5-1.5b-gptq-4bit/
+quantization/qwen2.5-1.5b-gptq-4bit/
