@@ -40,7 +40,19 @@ def setup_mlflow(experiment_name: str, tracking_uri: str) -> None:
     through the tracking server. mlflow.set_experiment() alone does NOT set
     the artifact location, which can cause artifact upload failures.
     """
-    pass
+    from mlflow.tracking import MlflowClient
+
+    mlflow.set_tracking_uri(tracking_uri)
+    client = MlflowClient(tracking_uri=tracking_uri)
+
+    experiment = client.get_experiment_by_name(experiment_name)
+    if experiment is None:
+        client.create_experiment(
+            experiment_name,
+            artifact_location="mlflow-artifacts:/",
+        )
+    mlflow.set_experiment(experiment_name)
+    print(f"MLflow experiment set: {experiment_name} @ {tracking_uri}")
 
 
 def load_model_and_tokenizer(
