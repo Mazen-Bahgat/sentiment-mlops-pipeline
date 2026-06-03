@@ -130,7 +130,11 @@ if __name__ == "__main__":
     quant_cfg = config.get("quantization", {})
     
     #TODO: while mlflow is running and parameters are logged, invoke:
-    run_few_shot(model, tokenizer, eval_path, model_name)
+    with mlflow.start_run(run_name="few-shot-experiments"):
+        mlflow.log_param("model_name", model_name)
+        mlflow.log_param("eval_dataset", eval_path)
+        run_few_shot(model, tokenizer, eval_path, model_name)
+
     run_quantization_eval(
         tracking_uri,
         experiment_name,
