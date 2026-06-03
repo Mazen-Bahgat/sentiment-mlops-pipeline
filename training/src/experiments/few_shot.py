@@ -76,59 +76,51 @@ def run_few_shot(
     for n_shots in shot_counts:
         # TODO: Start an MLflow nested run with name f"few-shot-{n_shots}"
         # TODO: Log parameters: experiment_type="few_shot", n_shots, num_samples, vllm_model_path=model_name
-        with mlflow.start_run(run_name=f"few-shot-{n_shots}"):
+        with mlflow.start_run(run_name=f"few-shot-{n_shots}", nested=True):
             mlflow.log_param("experiment_type", "few_shot")
             mlflow.log_param("n_shots", n_shots)
             mlflow.log_param("num_samples", len(dataset))
             mlflow.log_param("vllm_model_path", model_name)
 
-        y_pred = []
-        start_time = time.time()
+            y_pred = []
+            start_time = time.time()
 
-        for sample in dataset:
-            prompt = build_few_shot_prompt(sample["text"], n_shots)
-            inputs = tokenizer(prompt, return_tensors="pt").to(model.device)
-
-            with torch.no_grad():
-                outputs = model.generate(
-                    **inputs,
-                    max_new_tokens=10,
-                    do_sample=False,
-                    pad_token_id=tokenizer.eos_token_id,
+            for sample in dataset:
+                prompt = build_few_shot_prompt(sample["text"], n_shots)
+                inputs = tokenizer(prompt, return_tensors="pt").to(model.device)
+                with torch.no_grad():
+                    outputs = model.generate(
+                        **inputs,
+                        max_new_tokens=10,
+                        do_sample=False,
+                        pad_token_id=tokenizer.eos_token_id,
+                    )
+                generated = tokenizer.decode(
+                    outputs[0][inputs["input_ids"].shape[1]:], skip_special_tokens=True
                 )
+                y_pred.append(parse_sentiment(generated))
 
-            generated = tokenizer.decode(
-                outputs[0][inputs["input_ids"].shape[1]:], skip_special_tokens=True
-            )
-            y_pred.append(parse_sentiment(generated))
+            elapsed = time.time() - start_time
+            metrics = compute_metrics(y_true, y_pred)
+            metrics["total_inference_time_s"] = elapsed
+            metrics["avg_latency_s"] = elapsed / len(dataset)
 
-        elapsed = time.time() - start_time
-        metrics = compute_metrics(y_true, y_pred)
-        metrics["total_inference_time_s"] = elapsed
-        metrics["avg_latency_s"] = elapsed / len(dataset)
-
-        # TODO: Log all metrics to MLflow using mlflow.log_metric()
-        for key, value in metrics.items():
+            # ALL of these must be inside the with block
+            for key, value in metrics.items():
                 mlflow.log_metric(key, value)
 
-        report = get_classification_report(y_true, y_pred)
+            report = get_classification_report(y_true, y_pred)
+            mlflow.log_text(report, f"classification_report_{n_shots}shot.txt")
 
-        # TODO: Log classification report as text artifact using mlflow.log_text()
-        mlflow.log_text(report, f"classification_report_{n_shots}shot.txt")
-
-
-
-        cm = get_confusion_matrix(y_true, y_pred)
-        # TODO: Log confusion matrix as JSON artifact using mlflow.log_dict()
-        mlflow.log_dict(
+            cm = get_confusion_matrix(y_true, y_pred)
+            mlflow.log_dict(
                 {"labels": ["positive", "negative", "neutral"], "matrix": cm},
                 f"confusion_matrix_{n_shots}shot.json",
             )
 
-        results[n_shots] = metrics
-        print(
-            f"  {n_shots}-shot: accuracy={metrics['accuracy']:.3f}, "
-            f"f1={metrics['f1_macro']:.3f}, latency={metrics['avg_latency_s']:.3f}s"
-        )
-
+            results[n_shots] = metrics
+            print(
+                f"  {n_shots}-shot: accuracy={metrics['accuracy']:.3f}, "
+                f"f1={metrics['f1_macro']:.3f}, latency={metrics['avg_latency_s']:.3f}s"
+            )
     return results

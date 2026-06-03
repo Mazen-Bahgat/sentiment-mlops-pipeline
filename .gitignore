@@ -17,6 +17,8 @@ mlruns/
 # Logs
 logs/
 *.jsonl
+*.log
+*.deb
 
 # IDE
 .vscode/

@@ -19,7 +19,7 @@ def quantize_gptq(
     output_dir: str,
     bits: int = 4,
     group_size: int = 128,
-    dataset_name: str = "wikitext",
+    dataset_name: str = "Salesforce/wikitext",
     num_samples: int = 48,
 ) -> None:
     """Quantize a model using GPTQ.
@@ -53,8 +53,9 @@ def quantize_gptq(
     # Prepare calibration data
     from datasets import load_dataset
 
-    config = "wikitext-2-raw-v1" if dataset_name == "wikitext" else None
-    dataset = load_dataset(dataset_name, config, split=f"train[:{num_samples * 4}]")
+    actual_name = "Salesforce/wikitext" if dataset_name == "wikitext" else dataset_name
+    config = "wikitext-2-raw-v1"
+    dataset = load_dataset(actual_name, config, split=f"train[:{num_samples * 4}]")
     # gptqmodel expects raw strings; filter out empty lines
     calibration_data = [text for text in dataset["text"] if text.strip()][:num_samples]
 
@@ -208,8 +209,18 @@ def evaluate_quantized_model(
     # TODO: If URI provided, log all metrics and the model to MLflow
     if mlflow_uri:
         import mlflow
+        mlflow.set_tracking_uri(mlflow_uri)
+        if experiment_name:
+            mlflow.set_experiment(experiment_name)
 
         #TODO: log metrics and store the model_path to the vllm_model_path parameter
+        with mlflow.start_run(run_name="quantized-model-eval", nested=True):
+            mlflow.log_param("experiment_type", "quantization_eval")
+            mlflow.log_param("vllm_model_path", os.path.abspath(model_path))
+            mlflow.log_param("bits", 4)
+            mlflow.log_param("num_samples", len(samples))
+            for key, value in metrics.items():
+                mlflow.log_metric(key, value)
 
     return metrics
 
