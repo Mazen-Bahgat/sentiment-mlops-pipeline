@@ -10,8 +10,8 @@ model:
   device: "auto"  # auto-detect GPU/CPU
 
 data:
-  eval_dataset: "data/eval_sentiment.csv"
-  train_dataset: "data/train_sentiment.csv"
+  eval_dataset: "/home/localuser/assignment-2/cisc814-s26-assignment2/CISC814-s26-assignments-main/assignment-2-mlops-pipeline/starter/ml-sentiment-app/data/eval_sentiment.csv"
+  train_dataset: "/home/localuser/assignment-2/cisc814-s26-assignment2/CISC814-s26-assignments-main/assignment-2-mlops-pipeline/starter/ml-sentiment-app/data/train_sentiment.csv"
 
 quantization:
   output_dir: "./qwen2.5-1.5b-gptq-4bit"
