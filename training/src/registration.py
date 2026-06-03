@@ -1,5 +1,5 @@
 """Register the best model of a given experiment type in the MLflow Model Registry."""
-
+from mlflow.tracking import MlflowClient
 from __future__ import annotations
 
 import argparse
@@ -35,7 +35,62 @@ def register_model(
     # using for this assignment, we do not upload any actual files, we only store the model weights
     # file path for later retrieval
 
-    pass
+    client = MlflowClient(tracking_uri=tracking_uri)
+
+    experiment = client.get_experiment_by_name(experiment_name)
+    if experiment is None:
+        raise ValueError(f"Experiment not found: {experiment_name}")
+    
+    runs = client.search_runs(
+        experiment_ids=[experiment.experiment_id],
+        filter_string=f"params.experiment_type = '{experiment_type}'",
+        order_by=["metrics.f1_macro DESC"],
+        max_results=1,
+    )
+    if not runs:
+        raise ValueError(
+            f"No runs found for experiment_type='{experiment_type}'"
+        )
+
+    best_run = runs[0]
+    run_id = best_run.info.run_id
+    vllm_model_path = best_run.data.params.get("vllm_model_path")
+    f1 = best_run.data.metrics.get("f1_macro")
+    print(f"Best {experiment_type} run: {run_id} (f1_macro={f1}), "
+          f"vllm_model_path={vllm_model_path}")
+
+    model_registry_name = "sentiment-qwen2.5"
+
+    # Ensure the registered model exists
+    try:
+        client.create_registered_model(model_registry_name)
+    except Exception:
+        pass  # already exists
+
+    # Create a model version pointing to the run
+    model_version = client.create_model_version(
+        name=model_registry_name,
+        source=f"runs:/{run_id}/model",
+        run_id=run_id,
+    )
+
+    # Assign alias
+    client.set_registered_model_alias(
+        name=model_registry_name,
+        alias=alias,
+        version=model_version.version,
+    )
+
+    # Store vllm_model_path as a version tag for Part B retrieval
+    client.set_model_version_tag(
+        name=model_registry_name,
+        version=model_version.version,
+        key="vllm_model_path",
+        value=vllm_model_path or "",
+    )
+
+    print(f"Registered '{model_registry_name}' version {model_version.version} "
+          f"with alias '{alias}' and vllm_model_path='{vllm_model_path}'")
 
 
 if __name__ == "__main__":
