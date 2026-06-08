@@ -91,6 +91,7 @@ async def predict(request: PredictRequest) -> PredictResponse:
     if not request.text.strip():
         raise HTTPException(status_code=400, detail="Empty input text")
 
+
     # TODO: Replace this placeholder with actual LLM inference
     # 1. Format the prompt using PROMPT_TEMPLATE
     # 2. Select the right model version
@@ -98,9 +99,38 @@ async def predict(request: PredictRequest) -> PredictResponse:
     # 4. Parse the output to extract sentiment label
     # 5. Log the request, the obtained label and latency
     # 6. Return a PredictResponse object as result
+    prompt = PROMPT_TEMPLATE.format(text=request.text)
+    version, url = select_model_version()
 
-    #use this structure for step 3
+    start = time.time()
     async with httpx.AsyncClient(timeout=30.0) as client:
+        try:
+            response = await client.post(
+                url,
+                json={
+                    "prompt": prompt,
+                    "max_tokens": 10,
+                    "temperature": 0.0,
+                },
+            )
+            response.raise_for_status()
+        except httpx.HTTPError as e:
+            raise HTTPException(status_code=502, detail=f"Model server error: {e}")
+
+    latency_ms = (time.time() - start) * 1000
+    result = response.json()
+    generated = result["choices"][0]["text"]
+    label = parse_sentiment(generated)
+
+    log_prediction(version, request.text, label, latency_ms)
+
+    return PredictResponse(
+        label=label,
+        model_version=version,
+        latency_ms=latency_ms,
+    )
+    #use this structure for step 3
+    '''async with httpx.AsyncClient(timeout=30.0) as client:
         try:
             response = await client.post(
                 url,
@@ -113,7 +143,7 @@ async def predict(request: PredictRequest) -> PredictResponse:
             response.raise_for_status()
         except httpx.HTTPError as e:
             raise HTTPException(status_code=502, detail=f"Model server error: {e}")
-
+'''
 
 @app.get("/logs", response_class=PlainTextResponse)
 def get_logs(n: int | None = None) -> str:
@@ -142,4 +172,22 @@ def stats() -> dict:
     # v1_pct and v2_pct: %times model V1 or V2 received a request
     # v1_avg_latency_ms and v2_avg_latency_ms: average latency in milliseconds for V1 or V2 requests
     
-    pass
+    lines = LOG_FILE.read_text().splitlines()
+    entries = [json.loads(l) for l in lines if l.strip()]
+
+    total = len(entries)
+    v1 = [e for e in entries if e["model_version"] == "v1"]
+    v2 = [e for e in entries if e["model_version"] == "v2"]
+
+    v1_count = len(v1)
+    v2_count = len(v2)
+
+    return {
+        "total_predictions": total,
+        "v1_count": v1_count,
+        "v2_count": v2_count,
+        "v1_pct": round(v1_count / total * 100, 1) if total else 0,
+        "v2_pct": round(v2_count / total * 100, 1) if total else 0,
+        "v1_avg_latency_ms": round(sum(e["latency_ms"] for e in v1) / v1_count, 2) if v1_count else 0,
+        "v2_avg_latency_ms": round(sum(e["latency_ms"] for e in v2) / v2_count, 2) if v2_count else 0,
+    }
