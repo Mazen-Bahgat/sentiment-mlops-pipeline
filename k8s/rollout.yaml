@@ -26,7 +26,18 @@ spec:
           #   --dtype float16
           #   --gpu-memory-utilization 0.4  (leave room for the canary pod)
           #   --enforce-eager            (skip torch.compile to save GPU memory)
-          args: []
+          args: 
+            - "--model"
+            - "Qwen/Qwen2.5-1.5B"
+            - "--port"
+            - "8000"
+            - "--max-model-len"
+            - "512"
+            - "--dtype"
+            - "float16"
+            - "--gpu-memory-utilization"
+            - "0.4"
+            - "--enforce-eager"
           ports:
             - containerPort: 8000
               name: http
@@ -40,7 +51,11 @@ spec:
           # TODO: Add volumeMounts for the model weights.
           # The HuggingFace cache should be mounted at /root/.cache/huggingface
           # The quantized model should be mounted at /mnt/models/v2-quantized
-          volumeMounts: []
+          volumeMounts: 
+            - name: hf-cache
+              mountPath: /root/.cache/huggingface
+            - name: quantized-model
+              mountPath: /mnt/models/v2-quantized
           livenessProbe:
             httpGet:
               path: /health
@@ -80,4 +95,17 @@ spec:
       #   2. Run the drift-analysis AnalysisTemplate (pass baseline-host
       #      and canary-host args matching the service names above)
       #   3. Gradually increase to 50%, pause 30s, then 80%, pause 30s
-      steps: []
+      steps: 
+        - setWeight: 20
+        - analysis:
+            templates:
+              - templateName: drift-analysis
+            args:
+              - name: baseline-host
+                value: sentiment-model-stable
+              - name: canary-host
+                value: sentiment-model-canary
+        - setWeight: 50
+        - pause: {duration: 30s}
+        - setWeight: 80
+        - pause: {duration: 30s}
