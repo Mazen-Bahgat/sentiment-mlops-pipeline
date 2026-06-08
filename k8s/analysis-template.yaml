@@ -50,6 +50,7 @@ spec:
     - name: drift-score-check
       initialDelay: 60s
       count : 3
+      interval: 30s
       failureLimit: 2
       successCondition: result[0] < 0.5
       provider:
