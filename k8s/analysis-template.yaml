@@ -28,7 +28,11 @@ spec:
                     #                  (http://{{args.baseline-host}}:8000/v1/completions)
                     #   CANARY_URL   — the vLLM completions endpoint on the canary service
                     #                  (http://{{args.canary-host}}:8000/v1/completions)
-                    env: []
+                    env: 
+                      - name: BASELINE_URL
+                        value: "http://{{args.baseline-host}}:8000/v1/completions"
+                      - name: CANARY_URL
+                        value: "http://{{args.canary-host}}:8000/v1/completions"
                     resources:
                       requests:
                         cpu: 200m
@@ -43,3 +47,12 @@ spec:
     #   - Pass if result[0] < 0.5 (low drift = safe to promote)
     #   - Check 3 times, fail if 2+ checks fail
     #   - Prometheus address: http://kube-prometheus-stack-prometheus.monitoring:9090
+    - name: drift-score-check
+      initialDelay: 60s
+      count : 3
+      failureLimit: 2
+      provider:
+        prometheus:
+          address: http://kube-prometheus-stack-prometheus.monitoring:9090
+          query: sentiment_drift_score{job="analysis-job"}
+          successCondition: result[0] < 0.5
