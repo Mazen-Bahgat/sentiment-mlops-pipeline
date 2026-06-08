@@ -51,8 +51,9 @@ spec:
       initialDelay: 60s
       count : 3
       failureLimit: 2
+      successCondition: result[0] < 0.5
       provider:
         prometheus:
           address: http://kube-prometheus-stack-prometheus.monitoring:9090
           query: sentiment_drift_score{job="analysis-job"}
-          successCondition: result[0] < 0.5
+          
