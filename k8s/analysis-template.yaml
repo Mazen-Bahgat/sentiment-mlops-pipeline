@@ -51,7 +51,7 @@ spec:
       initialDelay: 60s
       count : 3
       failureLimit: 2
-      successCondition: result[0] < 0.5
+      successCondition: result[0] < 0.5lo
       provider:
         prometheus:
           address: http://kube-prometheus-stack-prometheus.monitoring:9090
