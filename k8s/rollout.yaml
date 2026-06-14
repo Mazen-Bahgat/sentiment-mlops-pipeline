@@ -28,7 +28,7 @@ spec:
           #   --enforce-eager            (skip torch.compile to save GPU memory)
           args: 
             - "--model"
-            - "Qwen/Qwen2.5-1.5B"
+            - "/mnt/models/v2-quantized"
             - "--port"
             - "8000"
             - "--max-model-len"
@@ -73,9 +73,9 @@ spec:
                 name: mlops-config
           env:
             - name: MODEL_VERSION
-              value: "v1-fp16"
-            - name: HF_HUB_OFFLINE
-              value: "1"
+              value: "/mnt/models/v2-quantized"
+            # - name: HF_HUB_OFFLINE
+            #   value: "1"
       volumes:
         - name: hf-cache
           hostPath:
