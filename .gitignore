@@ -21,7 +21,6 @@ logs/
 *.deb
 
 # IDE
-.vscode/
 .idea/
 
 # OS
@@ -30,3 +29,5 @@ logs/
 
 qwen2.5-1.5b-gptq-4bit/
 quantization/qwen2.5-1.5b-gptq-4bit/
+config.bat
+node_modules
